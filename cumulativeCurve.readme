@@ -1,0 +1,66 @@
+pacakge cumulativeCurve
+
+class curve
+'''
+ _N: 样本总数
+ _delta: 缺省为1
+ _pb: np.array
+     概率分档
+     缺省为[0,0.1,0.5,1,2...98,99,99.5,99.9,100]
+	 递增
+ _bin: np.array 
+     元素是每个概率点对应的值，表示<=bin的概率
+     _bin[0]=输入数据最小值-_delta
+	 _bin[-1]=输入数据最大值
+	 递增	 
+ _cnt: np.array 
+     元素是每个概率点对应的频数上限，_bins*_N，是浮点值
+     floor(_bin*_N)是<=bin的频数
+	 递增	  
+ _interpolatFromBin: 用vbin值线性插值，返回_count
+     vbin <= _bin[0]，返回0
+	 vbin >= _bin[-1]，返回_N
+ _interpolatFromPb: 用vpb值线性插值，返回_bin
+     vpb必须在0~100之间
+	 
+ setpb():
+   设置缺省的_pb，当_N>0时从新计算_bin和_cnt
+ binCount(binRange): 概率累积密度转换为分区频数
+   返回 bins和binCnts
+   binRange缺省为_bin下标[0,0.5,1.5...-1.5,-0.5,-1]
+     bins[0]=_bin[0] cnts=_count[0]	 
+     bins[i]=_bin[i] cnts=bin[i-0.5],bin[i],bin[i+0.5]对应的_probability值围成的面积*_N
+	                      bin[i-0.5]=(bin[i-1]+bin[i])/2
+						  bin[i+0.5]=(bin[i+1]+bin[i])/2
+     bins[-1]=_bin[-1] cnts=_count[-]
+   转换后cnts中各元素的和与_N有误差！！！
+   
+ 统计值
+   当有数据更新时，缓存的统计值失效
+ count(): _N 精确
+ sum(): bins的binCnts加权和 估计
+ avg(): sum()/binCnts和  估计
+ std：sqrt(((bins*bins的binCnts加权和)-sum()平方)/_binCnt和*(_binCnt和-1))
+ min(): _bin[0] 精确
+ max(): _bin[-1] 精确
+ p(cent): f(_bin,_probability)用_probability=cent插值  估计
+ median(): p(50)  估计
+'''
+
+class curveFromBin(curve)
+'''
+  appandFromFile(filename):
+    文件中包含单列数值，可重复
+  appandFromFiles(pattern):
+	pattern: 文件通配符
+  appand(iter):	
+    iter：可迭代数值
+  cacl():
+    更新基类cueve中的_N，_bin，_cnt
+    
+'''
+    
+
+class curveFromBinCount(curve)
+
+class merge
