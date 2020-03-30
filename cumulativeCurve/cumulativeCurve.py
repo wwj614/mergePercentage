@@ -3,10 +3,8 @@ import numpy as np
 import collections
 
 import csv
-import sys
 import math
 import os.path
-import glob
 
 from interpolate import Interpolate
 
@@ -29,32 +27,26 @@ class CumulativeCurve :
         self._interpolateFromBin=None
         
     @staticmethod  
-    def load(filename) :
-        """
-        with open(filename, "r", encoding="UTF-8") as source:
-            objects=json.load(source, object_hook= blog_decode)
-        """    
-        objects=None
-        return objects
-          
-    def save(self,filename) :
-        """
-        with open(filename, "w", encoding="UTF-8") as target:
-    　　    json.dump( self, target, separators=(',', ':'), default=blog_j2_encode )
-        """
-        pass
-        
-    @staticmethod  
     def importCSV(filename) :
-        bin,cnt=np.loadtxt(filename,delimiter=',', usecols=(0,1,2), unpack=True)
-        return cumulativeCurve(bin,cnt)
+        """
+        文件格式
+        bin         pb    cnt 
+        13518.0 ,  0.0,   0.0
+        15635.97, 0.01, 7.705
+        ......
+        """        
+        bin,cnt=np.loadtxt(filename,delimiter=',', usecols=(0,2), unpack=True)
+        return CumulativeCurve(bin,cnt)
    
-    def exoortCSV(self,filename) :
+    def exportCSV(self,filename) :
         with open(filename,'wt') as f:
             writer=csv.writer(f)
             for i in range(len(self._pb)):
-                writer.writerow((self._bin[i],self._pb[i],self._cnt))
-   
+                writer.writerow((self._bin[i],self._pb[i],self._cnt[i]))
+
+    def getCurve(self) :
+       return self._bin,self._cnt
+       
     @property  
     def max(self) :
         return self._bin[-1]
@@ -84,48 +76,46 @@ class CumulativeCurve :
    
     def cumulativePercentage(self,b) :
         if not self._interpolateFromBin :
-            self._interpolateFromBin=Interpolate(_bin,_cnt,0)
-        return self._interpolateFromBin(b)/self._N
+            self._interpolateFromBin=Interpolate(self._bin,self._cnt,0)
+        return self._interpolateFromBin.eval(b)/self._N
    
     def rangeCount(self,a,b) :
-        return self.cumulativeCount(self,b) - self.cumulativeCount(self,a) 
+        return self.cumulativeCount(b) - self.cumulativeCount(a) 
    
     def binCount(self) :
-        cntlen=len(self._cnt)-1
-        c=np.zeros(cntlen)
-        b=np.zeros(cntlen)
-        for i in range(cntlen):
-            c[i]= self._cnt[i+1]-self._cnt[i]
-            b[i]=(self._bin[i+1]+self._bin[i])/2
-        return (b,c)
+        cntlen=len(self._cnt)
+        v=[]
+        v.append((self._bin[0],0))
+        for i in range(1,cntlen):
+            v.append(((self._bin[i]+self._bin[i-1])/2,self._cnt[i]-self._cnt[i-1]))
+        v.append((self._bin[-1],0))
+        return v
    
     @property
     def sum(self) :
-        bs,cs=self.binCount()
         s=0
-        for (b,c) in zip(bs,cs):
+        for b,c in self.binCount():
             s+=b*c
         return s
       
     @property
     def sum2(self) :
-        b,c=self.binCount()
         s2=0
-        for (b,c) in zip(bs,cs):
+        for b,c in self.binCount():
           s2+=b*b*c
         return s2
       
     @property
     def avg(self) :
-        return self.sum()/self._N
+        return self.sum/self._N
       
     @property
     def std(self) :
-        s=self.sum()
-        s2=self.sum2()
+        s=self.sum
+        s2=self.sum2
         n=self._N
         assert(n>1)
-        return sqrt((s2-s*s)/n/(n-1))
+        return math.sqrt((s2-s*s/n)/(n-1))
    
     def sample(n=1) :
         assert(n>0)
@@ -134,61 +124,74 @@ class CumulativeCurve :
         else :
             return [self.p(np.random.rand()) for i in range(n)]
       
-def curveFromBin(binValues,pb,delta=1) :
-    '''
-    binValues: 经排序的数值列表  
-    '''
-    N=len(binValues)    
-    binCumulateCount=np.array(range(1,N+1))
-    li=Interpolate(binCumulateCount,binValues,delta)
-    cnt=pb*N/100
-    bin=np.array([li.eval(x) for x in cnt])
-    return CumulativeCurve(bin,cnt)
-
-def curveFromBinCount(binCounts,pb,delta=1) :
-    '''
-    binCounts: 元素为(bins，counts)元组的列表
-    '''
-    from collections import Counter
-    c0=Counter
-    for (bins,counts) in binCounts :
-        for (bin,cnt) in zip(bins,counts) :
+    @staticmethod
+    def curveFromBin(binValues,pb,delta=1) :
+        '''
+        binValues: 经排序的数值列表  
+        '''
+        N=len(binValues)    
+        binCumulateCount=np.array(range(1,N+1))
+        li=Interpolate(binCumulateCount,binValues,delta)
+        cnt=pb*N/100
+        bin=np.array([li.eval(x) for x in cnt])
+        return CumulativeCurve(bin,cnt)
+    
+    @staticmethod
+    def curveFromBinCount(binCounts,pb,delta=1) :
+        '''
+        binCounts: 元素为(bin，count)元组的列表，可以是多次累积，bin可以无序
+        '''
+        from collections import Counter
+        c0=Counter()
+        for (bin,cnt) in binCounts :
             c0[bin] +=cnt
-   
-    c1 = sorted(c0.items(), key=lambda item: item[0])
-    clen=len(c1)
-    bins=np.zeros(clen)
-    binCumulateCount=np.zeros(clen)
-   
-    bins[0]=c1[0][0]
-    binCumulateCount[0]=c1[0][1]
-    for i in range(1,clen) :
-        bins[i]=c1[i][0]
-        binCumulateCount[i]=binCumulateCount[i-1]+c1[i][1]
-    
-    N=binCumulateCount[-1]
-    li=Interpolate(binCumulateCount,bins,delta)
-    cnt=pb*N/100
-    bin=np.array([li.eval(x) for x in cnt])  
-    return CumulativeCurve(bin,cnt)
-    
-def merge(curvers,pb) :
-    binList=[]    
-    for c in curvers :
-      binList.append(c[0])
-    bs=np.unique(np.ravel(np.array(binList)))
-   
-    bsLen=len(bs)
-    binCounts=np.zeros(bsLen)
-   
-    for (cbin,cCount) in curvers :
-      li=linearInterpolate(cbin,cCount,0)
-      cs=[li.eval(b) for b in bs]
-      binCounts=binCounts+cs
-   
-    newTotal=binCounts[-1]
-    li=Interpolate(binCounts*100/newTotal,bs,0) 
-    newbin=np.array([li.innerEval(p) for p in pb])    
-    return (newbin,pb,pb*newTotal/100)  
+       
+        c1 = sorted(c0.items(), key=lambda item: item[0])
+        clen=len(c1)
+       
+        if c1[0][1]==0 :
+            bins=np.zeros(clen)
+            binCumulateCount=np.zeros(clen)
+            bins[0]=c1[0][0]
+            binCumulateCount[0]=0
+            for i in range(1,clen-1) :
+                bins[i]=bins[i-1]+2*(c1[i][0]-bins[i-1])
+                binCumulateCount[i]=binCumulateCount[i-1]+c1[i][1]
+            bins[-1]=c1[-1][0]
+            binCumulateCount[-1]=binCumulateCount[-2]
+        else :
+            bins=np.zeros(clen+1)
+            binCumulateCount=np.zeros(clen+1)
+            bins[0]=c1[0][0]-delta      
+            binCumulateCount[0]=0;
+            for i in range(clen) :
+              bins[i+1]=c1[i][0]
+              binCumulateCount[i+1]=binCumulateCount[i]+c1[i][1]
+        
+        N=binCumulateCount[-1]
+        li=Interpolate(binCumulateCount,bins,0)
+        cnt=pb*N/100
+        bin=np.array([li.eval(x) for x in cnt])  
+        return CumulativeCurve(bin,cnt)
+        
+    @staticmethod
+    def merge(curves,pb) :
+        binList=[]    
+        for c in curves :
+          binList.append(c[0])
+        bs=np.unique(np.ravel(np.array(binList)))
+       
+        bsLen=len(bs)
+        binCounts=np.zeros(bsLen)
+       
+        for (cbin,cCount) in curves :
+          li=Interpolate(cbin,cCount,0)
+          cs=[li.eval(b) for b in bs]
+          binCounts=binCounts+cs
+       
+        newTotal=binCounts[-1]
+        li=Interpolate(binCounts*100/newTotal,bs,0) 
+        newbin=np.array([li.eval(p) for p in pb])    
+        return CumulativeCurve(newbin,pb*newTotal/100)  
   
 
