@@ -123,34 +123,45 @@ class cumulativeCurveTest(unittest.TestCase):
         self.assertTrue(cumulativeCurve_eq(c,self.c0))
 			
     def test_merge(self):
+        """多条曲线合并"""
         fname=os.path.join(os.path.dirname(__file__), '20200101.txt')
         with open(fname,'rt') as f:       
-          v=[]
+          v01=[]
           reader=csv.reader(f)
           for row in reader:
-              v.append(int(row[2]))
-        v.sort()
-        c01=CumulativeCurve.curveFromBin(v,self.pb)
+              v01.append(int(row[2]))
+        v01.sort()
+        c01=CumulativeCurve.curveFromBin(v01,self.pb)
         fname=os.path.join(os.path.dirname(__file__), '20200111.txt')
         with open(fname,'rt') as f:       
-          v=[]
+          v11=[]
           reader=csv.reader(f)
           for row in reader:
-              v.append(int(row[2]))
-        v.sort()
-        c11=CumulativeCurve.curveFromBin(v,self.pb)
+              v11.append(int(row[2]))
+        v11.sort()
+        c11=CumulativeCurve.curveFromBin(v11,self.pb)
         fname=os.path.join(os.path.dirname(__file__), '20200121.txt')
         with open(fname,'rt') as f:       
-          v=[]
+          v21=[]
           reader=csv.reader(f)
           for row in reader:
-              v.append(int(row[2]))
-        v.sort()
-        c21=CumulativeCurve.curveFromBin(v,self.pb)
+              v21.append(int(row[2]))
+        v21.sort()
+        c21=CumulativeCurve.curveFromBin(v21,self.pb)
         curves=[c01.getCurve(),c11.getCurve(),c21.getCurve()]
         c=CumulativeCurve.merge(curves,self.pb)
         self.assertTrue(cumulativeCurve_eq(c,self.c2))
-
-
-
+           
+        import operator
+        from functools import reduce 
+        v=reduce(operator.concat,[v01,v11,v21])
+        v.sort()
+        c0=CumulativeCurve.curveFromBin(v,self.pb)
+        print("curve: real {0} \n estimate {1}".format(c.getCurve(),c0.getCurve()))
+            
+        print("avg: real {0} estimate {1} relative err {2}%".format(np.mean(v),c.avg,round((c.avg-np.mean(v))/np.mean(v)*100,4)))
+        print("std: real {0} estimate {1} relative err {2}%".format(np.std(v),c.std,round((c.std-np.std(v))/np.std(v)*100,4)))
+        print("P25: real {0} estimate {1} relative err {2}%".format(np.percentile(v,25),c.p(25),round((c.p(25)-np.percentile(v,25))/np.percentile(v,25)*100,4)))
+        print("median: real {0} estimate {1} relative err {2}%".format(np.median(v),c.median,round((c.median-np.median(v))/np.median(v)*100,4)))
+        print("P75: real {0} estimate {1} relative err {2}%".format(np.percentile(v,75),c.p(75),round((c.p(75)-np.percentile(v,75))/np.percentile(v,75)*100,4)))
 
