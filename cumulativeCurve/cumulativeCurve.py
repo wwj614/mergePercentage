@@ -144,7 +144,7 @@ class CumulativeCurve:
         binCumulateCount = np.array(range(1, N + 1))
         li = Interpolate(binCumulateCount, binValues, delta)
         cnt = pb * N / 100
-        bin = np.array([li.eval(x) for x in cnt])
+        bin=li.evalArray(cnt, sorted=True)
         return CumulativeCurve(bin, cnt)
 
     @staticmethod
@@ -161,32 +161,35 @@ class CumulativeCurve:
         clen = len(c1)
 
         if c1[0][1] == 0:
-            bins = np.zeros(clen)
+            b = np.zeros(clen)
             binCumulateCount = np.zeros(clen)
-            bins[0] = c1[0][0]
+            b[0] = c1[0][0]
             binCumulateCount[0] = 0
             for i in range(1, clen - 1):
-                bins[i] = bins[i - 1] + 2 * (c1[i][0] - bins[i - 1])
+                b[i] = b[i - 1] + 2 * (c1[i][0] - b[i - 1])
                 binCumulateCount[i] = binCumulateCount[i - 1] + c1[i][1]
-            bins[-1] = c1[-1][0]
+            b[-1] = c1[-1][0]
             binCumulateCount[-1] = binCumulateCount[-2]
         else:
-            bins = np.zeros(clen + 1)
+            b = np.zeros(clen + 1)
             binCumulateCount = np.zeros(clen + 1)
-            bins[0] = c1[0][0] - delta
+            b[0] = c1[0][0] - delta
             binCumulateCount[0] = 0
             for i in range(clen):
-                bins[i + 1] = c1[i][0]
+                b[i + 1] = c1[i][0]
                 binCumulateCount[i + 1] = binCumulateCount[i] + c1[i][1]
 
         N = binCumulateCount[-1]
-        li = Interpolate(binCumulateCount, bins, 0)
+        li = Interpolate(binCumulateCount, b, 0)
         cnt = pb * N / 100
-        bin = np.array([li.eval(x) for x in cnt])
+        bin=li.evalArray(cnt, sorted=True)
         return CumulativeCurve(bin, cnt)
 
     @staticmethod
     def merge(curves, pb):
+        """
+        curves: 元素为(bins，counts)元组的列表
+        """  
         binList = []
         for c in curves:
             binList.append(c[0])
@@ -197,10 +200,10 @@ class CumulativeCurve:
 
         for cbin, cCount in curves:
             li = Interpolate(cbin, cCount, 0)
-            cs = [li.eval(b) for b in bs]
+            cs=li.evalArray(bs, sorted=True)
             binCounts = binCounts + cs
 
         newTotal = binCounts[-1]
         li = Interpolate(binCounts * 100 / newTotal, bs, 0)
-        newbin = np.array([li.eval(p) for p in pb])
+        newbin=li.evalArray(pb, sorted=True)
         return CumulativeCurve(newbin, pb * newTotal / 100)
