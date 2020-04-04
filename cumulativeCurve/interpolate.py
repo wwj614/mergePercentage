@@ -17,19 +17,37 @@ class Interpolate:
     def __init__(self, x: np.array, y: np.array, delta=0):
         assert(len(x) == len(y))
         self._N = len(x)
-        self._x = x
-        self._y = y
+        self._x, self._y = x, y
         self._delta = delta
-        self._xmax = x[-1]
-        self._xmin = x[0]
-        self._ymax = y[-1]
-        self._ymin = y[0]
+        self._xmin, self._xmax = x[0], x[-1]
+        self._ymin, self._ymax = y[0], y[-1]
         self._k = [np.inf
                    if (self._x[i+1] == self._x[i])
                    else (self._y[i+1] - self._y[i]) /
                         (self._x[i+1] - self._x[i])
                    for i in range(self._N - 1)]
 
+    def __hash__(self):
+        return hash((self._x.tobytes(), self._y.tobytes(), self._delta))
+        
+    def __expr__(self):
+        return "x: {}\ny: {}\ndelta: {}".format(self._x, self._y, self._delta)
+        
+    @staticmethod
+    def almostEqual(a,b):
+        if a==b: 
+            return True
+        if a.__class__ != b.__class__: 
+            return False 
+        if a._delta != b._delta : 
+            return False 
+        if a._N != b._N : 
+            return False 
+        if ((max(abs(a._x - b._x)) < 1E-5) and
+            (max(abs(a._y - b._y)) < 1E-5)): 
+            return True        
+        return False   
+        
     def innerEval(self, x):
         '''
         x>_xmin and x<_xmix 一定是内插
