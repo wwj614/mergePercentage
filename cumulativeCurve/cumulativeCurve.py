@@ -19,15 +19,36 @@ class CumulativeCurve:
     delta: 原始数据的min和累积概率为0时分档bin间的差，缺省为
       0
     """
+    pb=np.hstack((range(0,101,1),[0.01,0.1,0.5,99.5,99.9,99.99],[0.27,4.55,95.45,99.73]))
+    pb.sort()
+    
     def __init__(self, bin, cnt):
-        self._bin = bin
-        self._cnt = cnt
+        self._bin, self._cnt = bin, cnt
         self._N = cnt[-1]
         self._pb = cnt * 100 / self._N
         self._interpolateFromPct = None
         self._interpolateFromBin = None
         self._sum = None
         self._sum2 = None
+
+    def __hash__(self):
+        return hash((self._bin.tobytes(), self._cnt.tobytes()))
+        
+    def __repr__(self):
+        return "bin: {}\ncnt: {}\n".format(self._bin, self._cnt)
+        
+    @staticmethod
+    def almostEqual(a,b):
+        if a==b: 
+            return True
+        if a.__class__ != b.__class__: 
+            return False 
+        if a._N != b._N : 
+            return False 
+        if ((max(abs(a._bin - b._bin)) < 1E-5) and
+            (max(abs(a._cnt - b._cnt)) < 1E-5)): 
+            return True        
+        return False   
 
     @staticmethod
     def importCSV(filename):
